@@ -250,24 +250,6 @@ interface RepositoryInterface
     public function getFieldsSearchable();
 
     /**
-     * Set Presenter
-     *
-     * @param $presenter
-     *
-     * @return mixed
-     */
-    public function setPresenter($presenter);
-
-    /**
-     * Skip Presenter Wrapper
-     *
-     * @param bool $status
-     *
-     * @return $this
-     */
-    public function skipPresenter($status = true);
-
-    /**
      * Retrieve first data of repository, or return new Entity
      *
      * @param array $attributes
