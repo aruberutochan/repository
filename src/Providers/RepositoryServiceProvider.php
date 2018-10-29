@@ -41,14 +41,7 @@ class RepositoryServiceProvider extends ServiceProvider
      */
     public function register()
     {
-        $this->commands('Aruberuto\Repository\Generators\Commands\RepositoryCommand');
-        $this->commands('Aruberuto\Repository\Generators\Commands\TransformerCommand');
-        $this->commands('Aruberuto\Repository\Generators\Commands\PresenterCommand');
-        $this->commands('Aruberuto\Repository\Generators\Commands\EntityCommand');
-        $this->commands('Aruberuto\Repository\Generators\Commands\ValidatorCommand');
-        $this->commands('Aruberuto\Repository\Generators\Commands\ControllerCommand');
-        $this->commands('Aruberuto\Repository\Generators\Commands\BindingsCommand');
-        $this->commands('Aruberuto\Repository\Generators\Commands\CriteriaCommand');
+
         $this->app->register('Aruberuto\Repository\Providers\EventServiceProvider');
     }
 
