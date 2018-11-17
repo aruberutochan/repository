@@ -11,6 +11,9 @@ use Illuminate\Support\Collection;
 use Aruberuto\Repository\Contracts\CriteriaInterface;
 use Aruberuto\Repository\Traits\ComparesVersionsTrait;
 use Aruberuto\Repository\Contracts\RepositoryCriteriaInterface;
+use Aruberuto\Repository\Contracts\RepositoryAncestorCriteriaInterface;
+use Aruberuto\Repository\Contracts\AncestorCriteriaInterface;
+
 use Aruberuto\Repository\Contracts\RepositoryInterface;
 use Aruberuto\Repository\Events\RepositoryEntityCreated;
 use Aruberuto\Repository\Events\RepositoryEntityDeleted;
@@ -21,7 +24,7 @@ use Aruberuto\Repository\Exceptions\RepositoryException;
  * Class BaseRepository
  * @package Aruberuto\Repository\Eloquent
  */
-abstract class BaseRepository implements RepositoryInterface, RepositoryCriteriaInterface
+abstract class BaseRepository implements RepositoryInterface, RepositoryCriteriaInterface, RepositoryAncestorCriteriaInterface
 {
     use ComparesVersionsTrait;
 
@@ -55,6 +58,19 @@ abstract class BaseRepository implements RepositoryInterface, RepositoryCriteria
     protected $criteria;
 
     /**
+     * Model Ancestor
+     */
+    protected $ancestor;
+
+    /**
+     * Skip the ancestor
+     *
+     * @var boolean
+     */
+    protected $skipAncestor = false;
+
+
+    /**
      * @var bool
      */
     protected $skipCriteria = false;
@@ -71,6 +87,7 @@ abstract class BaseRepository implements RepositoryInterface, RepositoryCriteria
     {
         $this->app = $app;
         $this->criteria = new Collection();
+        $this->ancestor = new Collection();
         $this->makeModel();
         $this->boot();
     }
@@ -280,7 +297,6 @@ abstract class BaseRepository implements RepositoryInterface, RepositoryCriteria
         $this->applyCriteria();
         $this->applyScope();
 
-
         $model = $this->model->firstOrCreate($attributes);
         $this->resetModel();
 
@@ -426,7 +442,12 @@ abstract class BaseRepository implements RepositoryInterface, RepositoryCriteria
      */
     public function create(array $attributes)
     {
-        $model = $this->model->newInstance($attributes);
+        $this->applyAncestor();
+        $this->applyCriteria();
+        $this->applyScope();
+
+        $model = $this->model->create($attributes);
+
         $model->save();
         $this->resetModel();
 
@@ -722,6 +743,103 @@ abstract class BaseRepository implements RepositoryInterface, RepositoryCriteria
     }
 
     /**
+     * Push Ancestor for filter the query
+     *
+     * @param $ancestor
+     *
+     * @return $this
+     * @throws \Aruberuto\Repository\Exceptions\RepositoryException
+     */
+    public function pushAncestor($ancestor)
+    {
+        if (is_string($ancestor)) {
+            $ancestor = new $ancestor;
+        }
+        if (!$ancestor instanceof AncestorCriteriaInterface) {
+            throw new RepositoryException("Class " . get_class($ancestor) . " must be an instance of Aruberuto\\Repository\\Contracts\\AncestorCriteriaInterface");
+        }
+        $this->ancestor->push($ancestor);
+
+        return $this;
+    }
+
+    /**
+     * Pop Ancestor
+     *
+     * @param $ancestor
+     *
+     * @return $this
+     */
+    public function popAncestor($ancestor)
+    {
+        $this->ancestor = $this->ancestor->reject(function ($item) use ($ancestor) {
+            if (is_object($item) && is_string($ancestor)) {
+                return get_class($item) === $ancestor;
+            }
+
+            if (is_string($item) && is_object($ancestor)) {
+                return $item === get_class($ancestor);
+            }
+
+            return get_class($item) === get_class($ancestor);
+        });
+
+        return $this;
+    }
+
+    /**
+     * Get Collection of Ancestor
+     *
+     * @return Collection
+     */
+    public function getAncestor()
+    {
+        return $this->ancestor;
+    }
+
+    /**
+     * Find data by Ancestor
+     *
+     * @param AncestorCriteriaInterface $ancestor
+     *
+     * @return mixed
+     */
+    public function getByAncestor(AncestorCriteriaInterface $ancestor)
+    {
+        $this->model = $ancestor->apply($this->model, $this);
+        $results = $this->model->get();
+        $this->resetModel();
+
+        return $this->parserResult($results);
+    }
+
+    /**
+     * Skip Ancestor
+     *
+     * @param bool $status
+     *
+     * @return $this
+     */
+    public function skipAncestor($status = true)
+    {
+        $this->skipAncestor = $status;
+
+        return $this;
+    }
+
+    /**
+     * Reset all Ancestors
+     *
+     * @return $this
+     */
+    public function resetAncestor()
+    {
+        $this->ancestor = new Collection();
+
+        return $this;
+    }
+
+    /**
      * Apply scope in current Query
      *
      * @return $this
@@ -754,6 +872,31 @@ abstract class BaseRepository implements RepositoryInterface, RepositoryCriteria
             foreach ($criteria as $c) {
                 if ($c instanceof CriteriaInterface) {
                     $this->model = $c->apply($this->model, $this);
+                }
+            }
+        }
+
+        return $this;
+    }
+
+        /**
+     * Apply criteria in current Query
+     *
+     * @return $this
+     */
+    protected function applyAncestor()
+    {
+
+        if ($this->skipAncestor === true) {
+            return $this;
+        }
+
+        $ancestor = $this->getAncestor();
+
+        if ($ancestor) {
+            foreach ($ancestor as $a) {
+                if ($a instanceof AncestorCriteriaInterface) {
+                    $this->model = $a->apply($this->model, $this);
                 }
             }
         }
