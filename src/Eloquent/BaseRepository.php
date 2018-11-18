@@ -212,6 +212,19 @@ abstract class BaseRepository implements RepositoryInterface, RepositoryCriteria
     }
 
     /**
+     * Detach
+     *
+     * @param $id
+     * @param $relation
+     * @param $attributes
+     * @return mixed
+     */
+    public function detach($id, $relation, $attributes)
+    {
+        return $this->find($id)->{$relation}()->detach($attributes);
+    }
+
+    /**
      * Retrieve all data of repository
      *
      * @param array $columns
@@ -488,6 +501,8 @@ abstract class BaseRepository implements RepositoryInterface, RepositoryCriteria
      */
     public function updateOrCreate(array $attributes, array $values = [])
     {
+        $this->applyAncestor();
+        $this->applyCriteria();
         $this->applyScope();
 
         $model = $this->model->updateOrCreate($attributes, $values);
