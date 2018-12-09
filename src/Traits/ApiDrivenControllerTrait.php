@@ -24,6 +24,7 @@ trait ApiDrivenControllerTrait {
     {
         $request = $this->makeRequest('index');
         $result = $this->service->getAll();
+
         return $this->maybeMakeResource('collection', $result);
     }
 
@@ -47,7 +48,7 @@ trait ApiDrivenControllerTrait {
 
         } else {
 
-            return $this->maybeMakeResource('single', $model);
+            return $this->maybeMakeResource('single', $model, 201);
         }
 
     }
@@ -87,7 +88,7 @@ trait ApiDrivenControllerTrait {
 
         } else {
 
-            return $this->maybeMakeResource('single', $model);
+            return $this->maybeMakeResource('single', $model, 201);
         }
     }
 
