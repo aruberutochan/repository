@@ -60,6 +60,25 @@ abstract class AbstractService {
         return $this->repository->all();
     }
 
+    /**
+     * Get all games
+     *
+     * @return Collection
+     */
+    public function paginate()
+    {
+        if(!$this->skipCriteria) {
+            foreach($this->getterCriteria as $criteria) {
+                $this->repository = $this->repository->pushCriteria(app($criteria));
+            }
+        }
+        if(!$this->skipRelations) {
+            $this->repository = $this->repository->with($this->relations);
+        }
+
+        return $this->repository->paginate();
+    }
+
     public function create($request)
     {
         if($this->skipAncestor) {
