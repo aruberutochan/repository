@@ -8,7 +8,6 @@ use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
-use Aruberuto\Repository\Contracts\CriteriaInterface;
 use Aruberuto\Repository\Traits\ComparesVersionsTrait;
 use Aruberuto\Repository\Contracts\RepositoryCriteriaInterface;
 use Aruberuto\Repository\Contracts\RepositoryAncestorCriteriaInterface;
@@ -20,13 +19,23 @@ use Aruberuto\Repository\Events\RepositoryEntityDeleted;
 use Aruberuto\Repository\Events\RepositoryEntityUpdated;
 use Aruberuto\Repository\Exceptions\RepositoryException;
 
+use Aruberuto\Repository\Traits\RepositoryScopeTrait;
+use Aruberuto\Repository\Traits\RepositoryCriteriaTrait;
+use Aruberuto\Repository\Traits\RepositoryAncestorCriteriaTrait;
+use Aruberuto\Repository\Traits\HasAfterSaveScope;
+
+
 /**
  * Class BaseRepository
  * @package Aruberuto\Repository\Eloquent
  */
 abstract class BaseRepository implements RepositoryInterface, RepositoryCriteriaInterface, RepositoryAncestorCriteriaInterface
 {
-    use ComparesVersionsTrait;
+    use ComparesVersionsTrait, 
+        RepositoryScopeTrait, 
+        RepositoryCriteriaTrait, 
+        RepositoryAncestorCriteriaTrait,  
+        HasAfterSaveScope;
 
     /**
      * @var Application
@@ -44,51 +53,13 @@ abstract class BaseRepository implements RepositoryInterface, RepositoryCriteria
     protected $fieldSearchable = [];
 
     /**
-     * Validation Rules
-     *
-     * @var array
-     */
-    protected $rules = null;
-
-    /**
-     * Collection of Criteria
-     *
-     * @var Collection
-     */
-    protected $criteria;
-
-    /**
-     * Model Ancestor
-     */
-    protected $ancestor;
-
-    /**
-     * Skip the ancestor
-     *
-     * @var boolean
-     */
-    protected $skipAncestor = false;
-
-
-    /**
-     * @var bool
-     */
-    protected $skipCriteria = false;
-
-    /**
-     * @var \Closure
-     */
-    protected $scopeQuery = null;
-
-    /**
      * @param Application $app
      */
     public function __construct(Application $app)
     {
         $this->app = $app;
-        $this->criteria = new Collection();
-        $this->ancestor = new Collection();
         $this->makeModel();
+        $this->initDependencies();
         $this->boot();
     }
 
@@ -98,6 +69,17 @@ abstract class BaseRepository implements RepositoryInterface, RepositoryCriteria
     public function boot()
     {
         //
+    }
+
+    /**
+     *
+     */
+    public function initDependencies()
+    {
+        //
+        $this->initAncestorCriteria();
+        $this->initCriteria();
+        $this->initAfterSaveScope();
     }
 
     /**
@@ -138,20 +120,6 @@ abstract class BaseRepository implements RepositoryInterface, RepositoryCriteria
     public function getFieldsSearchable()
     {
         return $this->fieldSearchable;
-    }
-
-    /**
-     * Query Scope
-     *
-     * @param \Closure $scope
-     *
-     * @return $this
-     */
-    public function scopeQuery(\Closure $scope)
-    {
-        $this->scopeQuery = $scope;
-
-        return $this;
     }
 
     /**
@@ -462,6 +430,8 @@ abstract class BaseRepository implements RepositoryInterface, RepositoryCriteria
         $model = $this->model->create($attributes);
 
         $model->save();
+
+        $this->applyAfterSave($model);
         $this->resetModel();
 
         event(new RepositoryEntityCreated($this, $model));
@@ -484,6 +454,9 @@ abstract class BaseRepository implements RepositoryInterface, RepositoryCriteria
         $model = $this->model->findOrFail($id);
         $model->fill($attributes);
         $model->save();
+
+        $this->applyAfterSave($model);
+
         $this->resetModel();
 
         event(new RepositoryEntityUpdated($this, $model));
@@ -506,6 +479,8 @@ abstract class BaseRepository implements RepositoryInterface, RepositoryCriteria
         $this->applyScope();
 
         $model = $this->model->updateOrCreate($attributes, $values);
+
+        $this->applyAfterSave($model);
         $this->resetModel();
 
         event(new RepositoryEntityUpdated($this, $model));
@@ -649,277 +624,6 @@ abstract class BaseRepository implements RepositoryInterface, RepositoryCriteria
     }
 
     /**
-     * Push Criteria for filter the query
-     *
-     * @param $criteria
-     *
-     * @return $this
-     * @throws \Aruberuto\Repository\Exceptions\RepositoryException
-     */
-    public function pushCriteria($criteria)
-    {
-        if (is_string($criteria)) {
-            $criteria = new $criteria;
-        }
-        if (!$criteria instanceof CriteriaInterface) {
-            throw new RepositoryException("Class " . get_class($criteria) . " must be an instance of Prettus\\Repository\\Contracts\\CriteriaInterface");
-        }
-        $this->criteria->push($criteria);
-
-        return $this;
-    }
-
-    /**
-     * Pop Criteria
-     *
-     * @param $criteria
-     *
-     * @return $this
-     */
-    public function popCriteria($criteria)
-    {
-        $this->criteria = $this->criteria->reject(function ($item) use ($criteria) {
-            if (is_object($item) && is_string($criteria)) {
-                return get_class($item) === $criteria;
-            }
-
-            if (is_string($item) && is_object($criteria)) {
-                return $item === get_class($criteria);
-            }
-
-            return get_class($item) === get_class($criteria);
-        });
-
-        return $this;
-    }
-
-    /**
-     * Get Collection of Criteria
-     *
-     * @return Collection
-     */
-    public function getCriteria()
-    {
-        return $this->criteria;
-    }
-
-    /**
-     * Find data by Criteria
-     *
-     * @param CriteriaInterface $criteria
-     *
-     * @return mixed
-     */
-    public function getByCriteria(CriteriaInterface $criteria)
-    {
-        $this->model = $criteria->apply($this->model, $this);
-        $results = $this->model->get();
-        $this->resetModel();
-
-        return $this->parserResult($results);
-    }
-
-    /**
-     * Skip Criteria
-     *
-     * @param bool $status
-     *
-     * @return $this
-     */
-    public function skipCriteria($status = true)
-    {
-        $this->skipCriteria = $status;
-
-        return $this;
-    }
-
-    /**
-     * Reset all Criterias
-     *
-     * @return $this
-     */
-    public function resetCriteria()
-    {
-        $this->criteria = new Collection();
-
-        return $this;
-    }
-
-    /**
-     * Reset Query Scope
-     *
-     * @return $this
-     */
-    public function resetScope()
-    {
-        $this->scopeQuery = null;
-
-        return $this;
-    }
-
-    /**
-     * Push Ancestor for filter the query
-     *
-     * @param $ancestor
-     *
-     * @return $this
-     * @throws \Aruberuto\Repository\Exceptions\RepositoryException
-     */
-    public function pushAncestor($ancestor)
-    {
-        if (is_string($ancestor)) {
-            $ancestor = new $ancestor;
-        }
-        if (!$ancestor instanceof AncestorCriteriaInterface) {
-            throw new RepositoryException("Class " . get_class($ancestor) . " must be an instance of Aruberuto\\Repository\\Contracts\\AncestorCriteriaInterface");
-        }
-        $this->ancestor->push($ancestor);
-
-        return $this;
-    }
-
-    /**
-     * Pop Ancestor
-     *
-     * @param $ancestor
-     *
-     * @return $this
-     */
-    public function popAncestor($ancestor)
-    {
-        $this->ancestor = $this->ancestor->reject(function ($item) use ($ancestor) {
-            if (is_object($item) && is_string($ancestor)) {
-                return get_class($item) === $ancestor;
-            }
-
-            if (is_string($item) && is_object($ancestor)) {
-                return $item === get_class($ancestor);
-            }
-
-            return get_class($item) === get_class($ancestor);
-        });
-
-        return $this;
-    }
-
-    /**
-     * Get Collection of Ancestor
-     *
-     * @return Collection
-     */
-    public function getAncestor()
-    {
-        return $this->ancestor;
-    }
-
-    /**
-     * Find data by Ancestor
-     *
-     * @param AncestorCriteriaInterface $ancestor
-     *
-     * @return mixed
-     */
-    public function getByAncestor(AncestorCriteriaInterface $ancestor)
-    {
-        $this->model = $ancestor->apply($this->model, $this);
-        $results = $this->model->get();
-        $this->resetModel();
-
-        return $this->parserResult($results);
-    }
-
-    /**
-     * Skip Ancestor
-     *
-     * @param bool $status
-     *
-     * @return $this
-     */
-    public function skipAncestor($status = true)
-    {
-        $this->skipAncestor = $status;
-
-        return $this;
-    }
-
-    /**
-     * Reset all Ancestors
-     *
-     * @return $this
-     */
-    public function resetAncestor()
-    {
-        $this->ancestor = new Collection();
-
-        return $this;
-    }
-
-    /**
-     * Apply scope in current Query
-     *
-     * @return $this
-     */
-    protected function applyScope()
-    {
-        if (isset($this->scopeQuery) && is_callable($this->scopeQuery)) {
-            $callback = $this->scopeQuery;
-            $this->model = $callback($this->model);
-        }
-
-        return $this;
-    }
-
-    /**
-     * Apply criteria in current Query
-     *
-     * @return $this
-     */
-    protected function applyCriteria()
-    {
-
-        if ($this->skipCriteria === true) {
-            return $this;
-        }
-
-        $criteria = $this->getCriteria();
-
-        if ($criteria) {
-            foreach ($criteria as $c) {
-                if ($c instanceof CriteriaInterface) {
-                    $this->model = $c->apply($this->model, $this);
-                }
-            }
-        }
-
-        return $this;
-    }
-
-        /**
-     * Apply criteria in current Query
-     *
-     * @return $this
-     */
-    protected function applyAncestor()
-    {
-
-        if ($this->skipAncestor === true) {
-            return $this;
-        }
-
-        $ancestor = $this->getAncestor();
-
-        if ($ancestor) {
-            foreach ($ancestor as $a) {
-                if ($a instanceof AncestorCriteriaInterface) {
-                    $this->model = $a->apply($this->model, $this);
-                }
-            }
-        }
-
-        return $this;
-    }
-
-    /**
      * Applies the given where conditions to the model.
      *
      * @param array $where
@@ -948,4 +652,15 @@ abstract class BaseRepository implements RepositoryInterface, RepositoryCriteria
     {
         return $result;
     }
+
+    // Empty methods to be implemented on Traits
+
+    // public function applyAncestor() { }
+
+    // public function applyCriteria() { }
+
+    // public function applyScope() { }
+
+    // public function applyAfterSave() { }
+
 }
