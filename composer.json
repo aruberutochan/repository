@@ -33,12 +33,5 @@
   "config": {
     "preferred-install": "dist"
   },
-  "extra": {
-    "laravel": {
-      "providers": [
-        "Aruberuto\\Repository\\Providers\\RepositoryServiceProvider"
-      ]
-    }
-  },
   "minimum-stability": "stable"
 }
