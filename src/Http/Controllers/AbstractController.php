@@ -31,11 +31,12 @@ abstract class AbstractController extends Controller {
      * @param collection $data
      * @return Resource | Model
      */
-    protected function maybeMakeResource($type, $data) {
+    protected function maybeMakeResource($type, $data, $status = 200) {
         $resourceName = $type . 'Resource';
         if(isset($this->$resourceName) && $this->$resourceName) {
             $class = $this->$resourceName;
-            return new $class($data);
+            return (new $class($data))->response()
+            ->setStatusCode($status);
         } elseif(is_bool($data)){
             return strval($data);
         } else {
