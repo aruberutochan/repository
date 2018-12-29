@@ -19,8 +19,11 @@ abstract class AbstractController extends Controller {
             if (!$request instanceof Request) {
                 throw new \Exception("Class {$this->{$type . 'Request'}} must be an instance of Illuminate\\Http\\Request");
             }
-            return $request;
+        } else {
+            $request = app()->make(Request::class);
         }
+        
+        return $request;
 
     }
 
