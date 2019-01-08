@@ -36,6 +36,9 @@ class RequestCriteria implements CriteriaInterface
     public function apply($model, RepositoryInterface $repository)
     {
         $fieldsSearchable = $repository->getFieldsSearchable();
+
+        $constraint = $this->request->get(config('repository.criteria.params.constraint', 'constraint'), []);
+
         $search = $this->request->get(config('repository.criteria.params.search', 'search'), null);
         $searchFields = $this->request->get(config('repository.criteria.params.searchFields', 'searchFields'), null);
         $filter = $this->request->get(config('repository.criteria.params.filter', 'filter'), null);
@@ -45,6 +48,24 @@ class RequestCriteria implements CriteriaInterface
         $searchJoin = $this->request->get(config('repository.criteria.params.searchJoin', 'searchJoin'), null);
         $sortedBy = !empty($sortedBy) ? $sortedBy : 'asc';
 
+        // Constraint: similar to search but with restriction in a singular field
+        if(is_array($constraint) && count($constraint)) {
+            foreach($constraint as $field => $value) {
+                $internalOperator = $this->getConstraintInternalOperator($value);  
+                $value = str_before($value, ':' . $internalOperator);
+                $explode = explode(';', $value);
+
+                $model->where(function ($query) use($field, $internalOperator, $explode) {
+                    foreach($explode as $val) {
+                        if($internalOperator === 'like') {
+                            $val = '%'. $val . '%';
+                        }
+                        $query->orWhere($field, $internalOperator,  $val )->get();
+
+                    }               
+                });    
+            }
+        }
         if ($search && is_array($fieldsSearchable) && count($fieldsSearchable)) {
 
             $searchFields = is_array($searchFields) || is_null($searchFields) ? $searchFields : explode(';', $searchFields);
@@ -210,6 +231,15 @@ class RequestCriteria implements CriteriaInterface
         }
 
         return $search;
+    }
+
+    protected function getConstraintInternalOperator($value) {
+        $explode = explode(':', $value);
+        if(count($explode) == 2) {
+            return $explode[1];
+        } else {
+            return config('repository.criteria.params.constraintOperator', 'like');
+        }
     }
 
 

@@ -5,40 +5,41 @@ use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 
-trait HasAfterSaveScope {
+trait HasAfterSaveActions {
     /**
      * Collection of closure
      *
      * @var Collection
      */
-    protected $afterSaveScope;
+    protected $afterSaveActions;
 
     /**
      * @var boolean
      */
     protected $skipAfterSave = false;
 
-    public function initAfterSaveScope() {
-        $this->afterSaveScope = new Collection();
+    public function initAfterSaveActions() {
+        $this->afterSaveActions = new Collection();
     }
 
-    public function getAfterSaveScope() {
-        return $this->afterSaveScope;
+    public function getAfterSaveActions() {
+        return $this->afterSaveActions;
     }
 
-    public function pushAfterSaveScope($closure) {
+    public function pushAfterSaveAction($closure) {
         if (!is_callable($closure)) {
             throw new RepositoryException("\$closure must be callable");
         }
-        $this->afterSaveScope->push($closure);
+        $this->afterSaveActions->push($closure);
 
         return $this;
     }
 
     public function applyAfterSave($model) {
-        foreach($this->getAfterSaveScope() as $function) {
+        foreach($this->getAfterSaveActions() as $function) {
             call_user_func_array($function,[$model]);
         }
+        return $this;
     }
 
 }

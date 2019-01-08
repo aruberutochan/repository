@@ -60,13 +60,8 @@ abstract class AbstractService {
         return $this->repository->all();
     }
 
-<<<<<<< HEAD
      /**
      * Paginate all entities
-=======
-    /**
-     * Get all games
->>>>>>> release/0.3.1
      *
      * @return Collection
      */

@@ -22,7 +22,7 @@ use Aruberuto\Repository\Exceptions\RepositoryException;
 use Aruberuto\Repository\Traits\RepositoryScopeTrait;
 use Aruberuto\Repository\Traits\RepositoryCriteriaTrait;
 use Aruberuto\Repository\Traits\RepositoryAncestorCriteriaTrait;
-use Aruberuto\Repository\Traits\HasAfterSaveScope;
+use Aruberuto\Repository\Traits\HasAfterSaveActions;
 
 
 /**
@@ -35,7 +35,7 @@ abstract class BaseRepository implements RepositoryInterface, RepositoryCriteria
         RepositoryScopeTrait, 
         RepositoryCriteriaTrait, 
         RepositoryAncestorCriteriaTrait,  
-        HasAfterSaveScope;
+        HasAfterSaveActions;
 
     /**
      * @var Application
@@ -79,7 +79,7 @@ abstract class BaseRepository implements RepositoryInterface, RepositoryCriteria
         //
         $this->initAncestorCriteria();
         $this->initCriteria();
-        $this->initAfterSaveScope();
+        $this->initAfterSaveActions();
     }
 
     /**
