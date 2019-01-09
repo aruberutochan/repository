@@ -55,15 +55,39 @@ class RequestCriteria implements CriteriaInterface
                 $value = str_before($value, ':' . $internalOperator);
                 $explode = explode(';', $value);
 
-                $model->where(function ($query) use($field, $internalOperator, $explode) {
-                    foreach($explode as $val) {
-                        if($internalOperator === 'like') {
-                            $val = '%'. $val . '%';
-                        }
-                        $query->orWhere($field, $internalOperator,  $val )->get();
+                $relation = null;
+                if(stripos($field, '.')) {
+                    $explodeField = explode('.', $field);
+                    $field = array_pop($explodeField);
+                    $relation = implode('.', $explodeField);
+                }
 
-                    }               
-                });    
+                if (!is_null($value)) {
+                    if(!is_null($relation)) {
+                        $model->whereHas($relation, function($query) use($field,$internalOperator,$value, $explode) {
+                            $query->where(function ($query) use($field, $internalOperator, $explode) {
+                                foreach($explode as $val) {
+                                    if($internalOperator === 'like') {
+                                        $val = '%'. $val . '%';
+                                    }
+                                    $query->orWhere($field, $internalOperator,  $val )->get();
+            
+                                }               
+                            });    
+                        });
+                    } else {                        
+
+                        $model->where(function ($query) use($field, $internalOperator, $explode) {
+                            foreach($explode as $val) {
+                                if($internalOperator === 'like') {
+                                    $val = '%'. $val . '%';
+                                }
+                                $query->orWhere($field, $internalOperator,  $val )->get();
+
+                            }               
+                        });   
+                    }
+                } 
             }
         }
         if ($search && is_array($fieldsSearchable) && count($fieldsSearchable)) {
