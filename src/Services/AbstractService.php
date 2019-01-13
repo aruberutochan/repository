@@ -30,6 +30,12 @@ abstract class AbstractService {
      */
     protected $createRelations = true;
 
+        /**
+     * @var Entity Relations Array
+     */
+    protected $syncRelations = true;
+    
+
     /**
      * GameServiceService constructor.
      *
@@ -42,12 +48,12 @@ abstract class AbstractService {
     }
 
     /**
-     * Get all games
-     *
+     * List entities
+     * 
      * @return Collection
      */
-    public function getAll()
-    {
+
+    public function list($method = 'all') {
         if(!$this->skipCriteria) {
             foreach($this->getterCriteria as $criteria) {
                 $this->repository = $this->repository->pushCriteria(app($criteria));
@@ -57,7 +63,17 @@ abstract class AbstractService {
             $this->repository = $this->repository->with($this->relations);
         }
 
-        return $this->repository->all();
+        return $this->repository->{$method}();
+    }
+
+    /**
+     * Get all games
+     *
+     * @return Collection
+     */
+    public function getAll()
+    {
+        return $this->list('all');
     }
 
      /**
@@ -67,16 +83,7 @@ abstract class AbstractService {
      */
     public function paginate()
     {
-        if(!$this->skipCriteria) {
-            foreach($this->getterCriteria as $criteria) {
-                $this->repository = $this->repository->pushCriteria(app($criteria));
-            }
-        }
-        if(!$this->skipRelations) {
-            $this->repository = $this->repository->with($this->relations);
-        }
-
-        return $this->repository->paginate();
+        return $this->list('paginate');
     }
 
     public function create($request)
@@ -93,6 +100,9 @@ abstract class AbstractService {
         if($this->createRelations) {
             $return = $this->updateOrCreateRelationships($return, $request);
         }
+        if($this->syncRelations) {
+            $return = $this->syncRelationships($return, $request);
+        }
         return $return;
 
     }
@@ -100,6 +110,21 @@ abstract class AbstractService {
     public function skipCreateRelations($bool = true ) {
         $this->createRelations = !$bool;
         return $this;
+    }
+
+    public function syncRelationships($model, $request) {
+
+        foreach($this->relations as $relation) {
+            // dd($request);
+
+            if($request->has('sync') && isset($request->sync[$relation])) {
+                $this->repository->sync($model->id, $relation, $request->sync[$relation] );
+            }
+        }
+
+        $return = $model->load($this->relations);
+        return $return;
+
     }
 
     public function createRelationships($model, $request) {
@@ -144,6 +169,9 @@ abstract class AbstractService {
         $return = $this->repository->update($request->all(), $id);
         if($this->createRelations) {
             $return = $this->updateOrCreateRelationships($return, $request);
+        }
+        if($this->syncRelations) {
+            $return = $this->syncRelationships($return, $request);
         }
         return $return;
 
