@@ -31,10 +31,10 @@ use Aruberuto\Repository\Traits\HasAfterSaveActions;
  */
 abstract class BaseRepository implements RepositoryInterface, RepositoryCriteriaInterface, RepositoryAncestorCriteriaInterface
 {
-    use ComparesVersionsTrait, 
-        RepositoryScopeTrait, 
-        RepositoryCriteriaTrait, 
-        RepositoryAncestorCriteriaTrait,  
+    use ComparesVersionsTrait,
+        RepositoryScopeTrait,
+        RepositoryCriteriaTrait,
+        RepositoryAncestorCriteriaTrait,
         HasAfterSaveActions;
 
     /**
