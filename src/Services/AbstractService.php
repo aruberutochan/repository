@@ -29,6 +29,7 @@ abstract class AbstractService {
     protected $skipCriteria = false;
     protected $skipAncestor = false;
     protected $skipRelations = false;
+    protected $skipDeleteRelations = false;
 
     protected $skipAfterCreateActions = false;
     protected $skipAfterUpdateActions = false;
@@ -280,6 +281,17 @@ abstract class AbstractService {
 
     public function destroy($id)
     {
+        if(!$this->skipCriteria) {
+            foreach($this->getterCriteria as $criteria) {
+                $this->repository = $this->repository->pushCriteria(app($criteria));
+            }
+        }
+
+        if(!$this->skipDeleteRelations) {
+            $model = $this->repository->find($id);
+            $this->deleteRelationships($model);
+        }
+
         return $this->repository->delete($id);
     }
 
