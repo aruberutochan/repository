@@ -212,7 +212,7 @@ abstract class AbstractService {
 
 
         if(!$this->skipAfterUpdateActions) {
-            $this->repository->pushAfterSaveAction($this->afterUpdateActions);
+            $this->repository->pushAfterSaveAction([&$this, 'applyAfterUpdateActions']);
         }
 
         if($this->syncRelations) {
