@@ -2,16 +2,13 @@
 namespace Aruberuto\Repository\Eloquent;
 
 use Closure;
-use Exception;
-use Illuminate\Container\Container as Application;
-use Illuminate\Contracts\Pagination\LengthAwarePaginator;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Container\Container as Application;
+use Aruberuto\Repository\Traits\HasAfterSaveActions;
+use Aruberuto\Repository\Traits\RepositoryScopeTrait;
 use Aruberuto\Repository\Traits\ComparesVersionsTrait;
-use Aruberuto\Repository\Contracts\RepositoryCriteriaInterface;
-use Aruberuto\Repository\Contracts\RepositoryAncestorCriteriaInterface;
-use Aruberuto\Repository\Contracts\AncestorCriteriaInterface;
 
 use Aruberuto\Repository\Contracts\RepositoryInterface;
 use Aruberuto\Repository\Events\RepositoryEntityCreated;
@@ -19,10 +16,10 @@ use Aruberuto\Repository\Events\RepositoryEntityDeleted;
 use Aruberuto\Repository\Events\RepositoryEntityUpdated;
 use Aruberuto\Repository\Exceptions\RepositoryException;
 
-use Aruberuto\Repository\Traits\RepositoryScopeTrait;
 use Aruberuto\Repository\Traits\RepositoryCriteriaTrait;
+use Aruberuto\Repository\Contracts\RepositoryCriteriaInterface;
 use Aruberuto\Repository\Traits\RepositoryAncestorCriteriaTrait;
-use Aruberuto\Repository\Traits\HasAfterSaveActions;
+use Aruberuto\Repository\Contracts\RepositoryAncestorCriteriaInterface;
 
 
 /**
@@ -31,10 +28,10 @@ use Aruberuto\Repository\Traits\HasAfterSaveActions;
  */
 abstract class BaseRepository implements RepositoryInterface, RepositoryCriteriaInterface, RepositoryAncestorCriteriaInterface
 {
-    use ComparesVersionsTrait, 
-        RepositoryScopeTrait, 
-        RepositoryCriteriaTrait, 
-        RepositoryAncestorCriteriaTrait,  
+    use ComparesVersionsTrait,
+        RepositoryScopeTrait,
+        RepositoryCriteriaTrait,
+        RepositoryAncestorCriteriaTrait,
         HasAfterSaveActions;
 
     /**

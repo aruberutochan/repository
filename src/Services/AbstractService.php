@@ -1,29 +1,38 @@
 <?php
 namespace Aruberuto\Repository\Services;
 
-use Illuminate\Database\Eloquent\Model;
+use Exception;
 use Illuminate\Http\Request;
-use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Database\Eloquent\Model;
+use Aruberuto\Repository\Traits\PreseteableTrait;
 use Aruberuto\Repository\Criteria\RequestCriteria;
 use Aruberuto\Repository\Contracts\RepositoryInterface;
-use Exception;
-abstract class AbstractService {
 
+abstract class AbstractService {
+    use PreseteableTrait;
     /**
      * @var Repository
      */
     protected $repository;
 
+    protected $request;
+
+
     /**
      * @var Entity Relations Array
      */
     protected $relations = [];
+    protected $deleteRelations = [];
 
     protected $storeAncestor = null;
     protected $getterCriteria = [RequestCriteria::class];
     protected $skipCriteria = false;
     protected $skipAncestor = false;
     protected $skipRelations = false;
+    protected $skipDeleteRelations = false;
+
+    protected $skipAfterCreateActions = false;
+    protected $skipAfterUpdateActions = false;
 
     /**
      * @var Entity Relations Array
@@ -34,7 +43,7 @@ abstract class AbstractService {
      * @var Entity Relations Array
      */
     protected $syncRelations = true;
-    
+
 
     /**
      * GameServiceService constructor.
@@ -45,11 +54,12 @@ abstract class AbstractService {
     public function __construct($repository)
     {
         $this->repository = $repository;
+        $this->request = app()->make(Request::class);
     }
 
     /**
      * List entities
-     * 
+     *
      * @return Collection
      */
 
@@ -86,8 +96,22 @@ abstract class AbstractService {
         return $this->list('paginate');
     }
 
+    public function applyAfterCreateActions($model) {
+        $this->applyAfterSaveActions($model);
+    }
+
+    public function applyAfterUpdateActions($model) {
+        $this->applyAfterSaveActions($model);
+    }
+
+    public function applyAfterSaveActions($model) {
+
+    }
+
     public function create($request)
     {
+        $this->request = $request;
+
         if($this->skipAncestor) {
             $this->repository = $this->repository->skipAncestor();
         } elseif($this->storeAncestor) {
@@ -96,12 +120,21 @@ abstract class AbstractService {
             }
         }
 
-        $return = $this->repository->create($request->all());
+        if(!$this->skipCreatePreset) {
+            $this->applyCreatePreset();
+        }
+
+        if(!$this->skipAfterCreateActions) {
+            $this->repository->pushAfterSaveAction([&$this, 'applyAfterCreateActions']);
+        }
+
+        $return = $this->repository->create($this->request->all());
+
         if($this->createRelations) {
-            $return = $this->updateOrCreateRelationships($return, $request);
+            $return = $this->updateOrCreateRelationships($return, $this->request);
         }
         if($this->syncRelations) {
-            $return = $this->syncRelationships($return, $request);
+            $return = $this->syncRelationships($return, $this->request);
         }
         return $return;
 
@@ -166,12 +199,24 @@ abstract class AbstractService {
 
     public function update($request, $id)
     {
-        $return = $this->repository->update($request->all(), $id);
-        if($this->createRelations) {
-            $return = $this->updateOrCreateRelationships($return, $request);
+        $this->request = $request;
+
+        if(!$this->skipUpdatePreset) {
+            $this->applyUpdatePreset();
         }
+
+        $return = $this->repository->update($this->request->all(), $id);
+        if($this->createRelations) {
+            $return = $this->updateOrCreateRelationships($return, $this->request);
+        }
+
+
+        if(!$this->skipAfterUpdateActions) {
+            $this->repository->pushAfterSaveAction([&$this, 'applyAfterUpdateActions']);
+        }
+
         if($this->syncRelations) {
-            $return = $this->syncRelationships($return, $request);
+            $return = $this->syncRelationships($return, $this->request);
         }
         return $return;
 
@@ -227,7 +272,7 @@ abstract class AbstractService {
     }
 
     public function deleteRelationships($model) {
-        foreach($this->relations as $relation) {
+        foreach($this->deleteRelations as $relation) {
             $model->$relation()->delete();
 
         }
@@ -236,8 +281,18 @@ abstract class AbstractService {
 
     public function destroy($id)
     {
-        return $this->repository->delete($id);
+        if(!$this->skipCriteria) {
+            foreach($this->getterCriteria as $criteria) {
+                $this->repository = $this->repository->pushCriteria(app($criteria));
+            }
+        }
 
+        if(!$this->skipDeleteRelations) {
+            $model = $this->repository->find($id);
+            $this->deleteRelationships($model);
+        }
+
+        return $this->repository->delete($id);
     }
 
 }
