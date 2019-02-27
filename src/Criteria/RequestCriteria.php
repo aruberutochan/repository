@@ -39,6 +39,8 @@ class RequestCriteria implements CriteriaInterface
 
         $constraint = $this->request->get(config('repository.criteria.params.constraint', 'constraint'), []);
 
+        $datesearch = $this->request->get(config('repository.criteria.params.datesearch', 'datesearch'), []);
+
         $search = $this->request->get(config('repository.criteria.params.search', 'search'), null);
         $searchFields = $this->request->get(config('repository.criteria.params.searchFields', 'searchFields'), null);
         $filter = $this->request->get(config('repository.criteria.params.filter', 'filter'), null);
@@ -48,10 +50,65 @@ class RequestCriteria implements CriteriaInterface
         $searchJoin = $this->request->get(config('repository.criteria.params.searchJoin', 'searchJoin'), null);
         $sortedBy = !empty($sortedBy) ? $sortedBy : 'asc';
 
+
+        // Search by dates. Examples
+        // [
+        //     'created_at' => '2019-02-27;2019-03-31', //between
+        //     'start_date' => '2019-05-01:>=', // starting date
+        //     'end_date' => '2019-05-10:<=', // Ending date
+        // ];
+
+        if(is_array($datesearch) && count($datesearch)) {
+            foreach($datesearch as $field => $value) {
+
+                $comparator = $this->getDateSearchComparator($value);
+                $value = str_before($value, ':' . $comparator);
+                $explode = explode(';', $value);
+
+                $start_date = null;
+                $end_date = null;
+                if(count($explode) > 1) {
+                    $between = true;
+                    $start_date = $explode[0];
+                    $end_date = $explode[1];
+                } else {
+                    $between = false;
+                }
+
+                $relation = null;
+                if(stripos($field, '.')) {
+                    $explodeField = explode('.', $field);
+                    $field = array_pop($explodeField);
+                    $relation = implode('.', $explodeField);
+                }
+
+                if (!is_null($value)) {
+                    if(!is_null($relation)) {
+                        $model->whereHas($relation, function($query) use($field,$comparator,$value, $start_date, $end_date, $between) {
+
+                            if($between) {
+                                $query->whereDate($field, '>=', $start_date)->whereDate($field, '<=', $end_date);
+                            } else {
+                                $query->whereDate($field, $comparator, $value);
+                            }
+                        });
+                    } else {
+
+                        if($between) {
+                            $model->whereDate($field, '>=', $start_date)->whereDate($field, '<=', $end_date)->get();
+                        } else {
+                            $model->whereDate($field, $comparator, $value)->get();
+                        }
+                    }
+                }
+            }
+        }
+
+
         // Constraint: similar to search but with restriction in a singular field
         if(is_array($constraint) && count($constraint)) {
             foreach($constraint as $field => $value) {
-                $internalOperator = $this->getConstraintInternalOperator($value);  
+                $internalOperator = $this->getConstraintInternalOperator($value);
                 $value = str_before($value, ':' . $internalOperator);
                 $explode = explode(';', $value);
 
@@ -71,11 +128,11 @@ class RequestCriteria implements CriteriaInterface
                                         $val = '%'. $val . '%';
                                     }
                                     $query->orWhere($field, $internalOperator,  $val )->get();
-            
-                                }               
-                            });    
+
+                                }
+                            });
                         });
-                    } else {                        
+                    } else {
 
                         $model->where(function ($query) use($field, $internalOperator, $explode) {
                             foreach($explode as $val) {
@@ -84,10 +141,10 @@ class RequestCriteria implements CriteriaInterface
                                 }
                                 $query->orWhere($field, $internalOperator,  $val )->get();
 
-                            }               
-                        });   
+                            }
+                        });
                     }
-                } 
+                }
             }
         }
         if ($search && is_array($fieldsSearchable) && count($fieldsSearchable)) {
@@ -259,10 +316,19 @@ class RequestCriteria implements CriteriaInterface
 
     protected function getConstraintInternalOperator($value) {
         $explode = explode(':', $value);
-        if(count($explode) == 2) {
-            return $explode[1];
+        if(count($explode) > 1) {
+            return end($explode);
         } else {
             return config('repository.criteria.params.constraintOperator', 'like');
+        }
+    }
+
+    protected function getDateSearchComparator($value) {
+        $explode = explode(':', $value);
+        if(count($explode) > 1) {
+            return end($explode);
+        } else {
+            return config('repository.criteria.params.dateSearchComparator', '>=');
         }
     }
 
