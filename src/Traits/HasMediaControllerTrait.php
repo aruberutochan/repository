@@ -16,7 +16,7 @@ trait HasMediaControllerTrait
     public function multiDownload(Media $media, Request $request) {
 
         $medias = $media->findMany($request->get('ids', []));
-        $mediaZip = MediaStream::create($request->get('name', 'my-files') . '.zip')->addMedia($medias);
+        $mediaZip = MediaStream::create($request->get('name', 'my-files') . '.' . $request->get('extension', 'zip'))->addMedia($medias);
         return $mediaZip;
 
     }
