@@ -241,10 +241,14 @@ class RequestCriteria implements CriteriaInterface
                     $keyName = $table.'.'.$prefix.'_id';
                 }
 
-                $model = $model
+                if(!self::isJoined($model, $sortTable)) {
+                    $model = $model
                     ->leftJoin($sortTable, $keyName, '=', $sortTable.'.id')
-                    ->orderBy($sortColumn, $sortedBy)
                     ->addSelect($table.'.*');
+                }
+
+                $model = $model
+                    ->orderBy($sortColumn, $sortedBy);
             } else {
                 $model = $model->orderBy($orderBy, $sortedBy);
             }
@@ -375,5 +379,19 @@ class RequestCriteria implements CriteriaInterface
         }
 
         return $fields;
+    }
+
+    public static function isJoined($query, $table)
+    {
+        $joins = $query->getQuery()->joins;
+        if($joins == null) {
+            return false;
+        }
+        foreach ($joins as $join) {
+            if ($join->table == $table) {
+                return true;
+            }
+        }
+        return false;
     }
 }
