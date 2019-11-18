@@ -650,6 +650,16 @@ abstract class BaseRepository implements RepositoryInterface, RepositoryCriteria
         return $result;
     }
 
+
+    public function __call($method, $args)
+    {
+
+        $this->model = call_user_func_array([$this->model, $method], $args);
+        return $this->model;
+
+    }
+
+
     // Empty methods to be implemented on Traits
 
     // public function applyAncestor() { }
