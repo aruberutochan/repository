@@ -18,7 +18,13 @@ trait HasMediaControllerTrait
         $mediaItem = $media->find($id);
         return $mediaItem->getFullUrl();
     }
-    
+
+    public function downloadBlob(Media $media, $id)
+    {
+        $mediaItem = $media->find($id);
+        return response()->download($mediaItem->getPath(), $mediaItem->file_name);
+    }
+
     public function _multiDownload(Media $media, Request $request) {
 
         $medias = $media->findMany($request->get('ids', []));
@@ -36,10 +42,10 @@ trait HasMediaControllerTrait
         }
 
         // die(print_r($mediasToZip));
-        
+
 
         // $headers = ["Content-Type"=>"application/zip"];
-        
+
 
         $fileName = $request->get('name', 'my-files') . '.' . $request->get('extension', 'zip'); // name of zip
         $filePath = public_path('/download/'.$fileName. Str::random());

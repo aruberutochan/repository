@@ -22,7 +22,7 @@ abstract class AbstractController extends Controller {
         } else {
             $request = app()->make(Request::class);
         }
-        
+
         return $request;
 
     }
