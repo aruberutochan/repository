@@ -22,6 +22,8 @@ trait HasMediaControllerTrait
     public function downloadBlob(Media $media, $id)
     {
         $mediaItem = $media->find($id);
+        ob_end_clean();
+        // return response()->file($mediaItem->getPath());
         return response()->download($mediaItem->getPath(), $mediaItem->file_name);
     }
 
