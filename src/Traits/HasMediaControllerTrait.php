@@ -40,7 +40,10 @@ trait HasMediaControllerTrait
         $medias = $media->findMany($request->get('ids', []));
         $mediasToZip = [];
         foreach($medias as $media) {
-            $mediasToZip[] = $media->getPath();
+            $path = $media->getPath();
+            if (file_exists($path)) {
+                $mediasToZip[] = $media->getPath();
+            }
         }
 
         // die(print_r($mediasToZip));
